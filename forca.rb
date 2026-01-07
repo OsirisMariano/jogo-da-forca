@@ -1,33 +1,34 @@
-# --- Jogo da Forca: Versão Revisada pelo Senior ---
+def limpar_tela
+  if Gem.win_platform?
+    system "cls"
+  else
+    system "clear"
+  end
+end
 
-# 1. Definimos o banco de palavras (Dicionário)
 dicionario = ["RUBY", "PROGRAMADOR", "CODIGO", "COMPUTADOR", "VARIAVEL"]
-
-# 2. Escolhemos a palavra PRIMEIRO (Para evitar o NameError)
-# .sample é um método de Array que pega um elemento aleatório
 palavra_secreta = dicionario.sample 
-
-# 3. Agora que a variável existe, podemos usá-la para criar o array de traços
 letras_certas = Array.new(palavra_secreta.length, "_")
-
-# Configurações iniciais
 tentativas_restantes = 6
 letras_utilizadas = []
 
-puts "--- JOGO DA FORCA ---"
-puts "Dica: A palavra tem #{palavra_secreta.length} letras."
 
-# 4. Loop do Jogo
 while tentativas_restantes > 0 && letras_certas.include?("_")
+  limpar_tela
+  puts "--- JOGO DA FORCA ---"
+  puts "Dica: A palavra tem #{palavra_secreta.length} letras."
   puts "\nPalavra: #{letras_certas.join(" ")}"
-  puts "Vidas: #{tentativas_restantes} | Já tentou: #{letras_utilizadas.join(", ")}"
   
   print "Digite uma letra: "
   chute = gets.chomp.upcase
 
-  # Validação de entrada vazia ou repetida
-  if chute.empty? || letras_utilizadas.include?(chute)
-    puts "Entrada inválida ou letra já usada!"
+  if chute.length != 1 || !chute.match?(/[A-Z]/)
+    puts "Erro: Digite apenas UMA letra(A-Z)."
+    next
+  end
+
+  if letras_utilizadas.include?(chute)
+    puts "Você já tentou a letra #{chute}!"
     next
   end
 
@@ -44,7 +45,6 @@ while tentativas_restantes > 0 && letras_certas.include?("_")
   end
 end
 
-# Resultado Final
 if !letras_certas.include?("_")
   puts "\n🎉 Parabéns! Você venceu. A palavra era #{palavra_secreta}."
 else
