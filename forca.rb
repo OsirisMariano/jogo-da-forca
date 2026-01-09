@@ -94,6 +94,26 @@ letras_utilizadas = []
 
 while erros_cometidos < 6 && letras_certas.include?("_")
   exibir_jogo(letras_certas, erros_cometidos, letras_utilizadas)
+def limpar_tela
+  if Gem.win_platform?
+    system "cls"
+  else
+    system "clear"
+  end
+end
+
+dicionario = ["RUBY", "PROGRAMADOR", "CODIGO", "COMPUTADOR", "VARIAVEL"]
+palavra_secreta = dicionario.sample 
+letras_certas = Array.new(palavra_secreta.length, "_")
+tentativas_restantes = 6
+letras_utilizadas = []
+
+
+while tentativas_restantes > 0 && letras_certas.include?("_")
+  limpar_tela
+  puts "--- JOGO DA FORCA ---"
+  puts "Dica: A palavra tem #{palavra_secreta.length} letras."
+  puts "\nPalavra: #{letras_certas.join(" ")}"
   
   print "Digite uma letra: "
   chute = gets.chomp.upcase
@@ -101,6 +121,14 @@ while erros_cometidos < 6 && letras_certas.include?("_")
   if chute.length != 1 || !chute.match?(/[A-Z]/) || letras_utilizadas.include?(chute)
     puts "❌ Entrada inválida ou já utilizada!"
     sleep 1
+
+  if chute.length != 1 || !chute.match?(/[A-Z]/)
+    puts "Erro: Digite apenas UMA letra(A-Z)."
+    next
+  end
+
+  if letras_utilizadas.include?(chute)
+    puts "Você já tentou a letra #{chute}!"
     next
   end
 
@@ -114,9 +142,7 @@ while erros_cometidos < 6 && letras_certas.include?("_")
     erros_cometidos += 1 # Aumenta o erro, o que muda o desenho da próxima vez
   end
 end
-
 exibir_jogo(letras_certas, erros_cometidos, letras_utilizadas)
-
 if !letras_certas.include?("_")
   puts "🎉 Parabéns! Você venceu!"
 else
