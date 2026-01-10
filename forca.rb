@@ -103,9 +103,42 @@ def carregar_dicionario
     exit # Encerra o programa se não houver palavras
   end
 end
+
+def escolher_dificuldade
+  loop do
+    limpar_tela
+    puts "=== ESCOLHA A DIFICULDADE ==="
+    puts "1. Fácil (Palavras curtas)"
+    puts "2. Médio (Palavras médias)"
+    puts "3. Difícil (Palavras longas)"
+    puts "\nOpção: "
+    escolha = gets.chomp.to_i
+
+    return escolha if [1, 2, 3].include?(escolha)
+    puts "Opção inválida! Escolha 1,2 ou 3."
+    sleep 1
+  end
+end
 # --- Lógica Principal ---
 
 dicionario = carregar_dicionario
+nivel = escolher_dificuldade
+dicionario_filtrado = dicionario.select do |palavra|
+  case nivel
+  when 1
+    palavra.length <= 5
+  when 2
+    palavra.length <= 5 && palavra.length <= 10
+  when 3
+    palavra.length > 10
+  end
+end
+ 
+if dicionario_filtrado.empty?
+  puts "Nenhuma palavra encontrada para esse nível. Usando dicionário completo."
+  dicionario_filtrado = dicionario_completo
+end
+
 palavra_secreta = dicionario.sample.upcase
 
 letras_certas = Array.new(palavra_secreta.length, "_")
