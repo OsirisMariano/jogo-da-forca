@@ -1,6 +1,6 @@
 # --- Jogo da Forca: Versão Visual (ASCII) ---
 
-# 1. Banco de Imagens (Constante)
+# 1. Banco de Imagens
 FORCA_VISUAL = [
   <<~ART,
     +---+
@@ -84,23 +84,16 @@ end
 
 def carregar_dicionario
   arquivo = "palavras.txt"
-  
   if File.exist?(arquivo)
-    # readlines cria um array onde cada linha é um item
-    # .map(&:strip) remove o "enter" (\n) invisível no fim de cada palavra
-    # .select { |p| !p.empty? } ignora linhas vazias acidentais
     palavras = File.read(arquivo).split.map(&:strip).reject(&:empty?)
-    
     if palavras.empty?
       puts "⚠️ O arquivo palavras.txt está vazio. Usando palavra padrão."
       return ["RUBY"]
     end
-    
     palavras
   else
     puts "❌ Erro: O arquivo 'palavras.txt' não foi encontrado!"
-    puts "Certifique-se de que ele está na mesma pasta que o forca.rb"
-    exit # Encerra o programa se não houver palavras
+    exit
   end
 end
 
@@ -108,51 +101,79 @@ def escolher_dificuldade
   loop do
     limpar_tela
     puts "=== ESCOLHA A DIFICULDADE ==="
-    puts "1. Fácil (Palavras curtas)"
-    puts "2. Médio (Palavras médias)"
-    puts "3. Difícil (Palavras longas)"
-    puts "\nOpção: "
+    puts "1. Fácil (Até 5 letras)"
+    puts "2. Médio (6 a 10 letras)"
+    puts "3. Difícil (Mais de 10 letras)"
+    print "\nOpção: "
     escolha = gets.chomp.to_i
-
     return escolha if [1, 2, 3].include?(escolha)
-    puts "Opção inválida! Escolha 1,2 ou 3."
+    puts "❌ Opção inválida! Escolha 1, 2 ou 3."
     sleep 1
   end
 end
-# --- Lógica Principal ---
 
-dicionario = carregar_dicionario
-nivel = escolher_dificuldade
-dicionario_filtrado = dicionario.select do |palavra|
-  case nivel
-  when 1
-    palavra.length <= 5
-  when 2
-    palavra.length <= 5 && palavra.length <= 10
-  when 3
-    palavra.length > 10
+def salvar_ranking(nome, erros)
+  File.open("ranking.txt", "a") do |arquivo|
+    arquivo.puts("#{nome};#{erros}")
   end
 end
- 
-if dicionario_filtrado.empty?
-  puts "Nenhuma palavra encontrada para esse nível. Usando dicionário completo."
-  dicionario_filtrado = dicionario_completo
+
+def exibir_ranking
+  limpar_tela
+  puts "🏆 --- RANKING DOS MESTRES --- 🏆"
+  if !File.exist?("ranking.txt") || File.zero?("ranking.txt")
+    puts "O ranking está vazio. Seja o primeiro a vencer!"
+  else
+    jogadores = File.readlines("ranking.txt").map do |linha|
+      nome, erros = linha.strip.split(";")
+      { nome: nome, erros: erros.to_i }
+    end
+    ranking_ordenado = jogadores.sort_by { |j| j[:erros] }.first(5)
+    ranking_ordenado.each_with_index do |j, i|
+      medalha = case i
+                when 0 then "🥇"
+                when 1 then "🥈"
+                when 2 then "🥉"
+                else "  "
+                end
+      puts "#{medalha} #{i + 1}. #{j[:nome].ljust(12)} | Erros: #{j[:erros]}"
+    end
+  end
+  puts "-------------------------------\n"
+  print "Pressione ENTER para começar o desafio..."
+  gets
 end
 
-palavra_secreta = dicionario.sample.upcase
+# --- Lógica Principal ---
+exibir_ranking
+dicionario = carregar_dicionario
+nivel = escolher_dificuldade
+
+dicionario_filtrado = dicionario.select do |palavra|
+  case nivel
+  when 1 then palavra.length <= 5
+  when 2 then palavra.length > 5 && palavra.length <= 10
+  when 3 then palavra.length > 10
+  end
+end
+
+if dicionario_filtrado.empty?
+  puts "⚠️ Nenhuma palavra para esse nível. Usando o dicionário completo."
+  dicionario_filtrado = dicionario
+end
+
+# Sorteia da lista FILTRADA
+palavra_secreta = dicionario_filtrado.sample.upcase
 
 letras_certas = Array.new(palavra_secreta.length, "_")
 erros_cometidos = 0 
 letras_utilizadas = []
 
-# Loop principal do jogo
 while erros_cometidos < 6 && letras_certas.include?("_")
   exibir_jogo(letras_certas, erros_cometidos, letras_utilizadas)
-  
   print "Digite uma letra: "
   chute = gets.chomp.upcase
 
-  # Validação de Entrada
   if chute.length != 1 || !chute.match?(/[A-Z]/)
     puts "❌ Erro: Digite apenas UMA letra (A-Z)."
     sleep 1
@@ -167,7 +188,6 @@ while erros_cometidos < 6 && letras_certas.include?("_")
 
   letras_utilizadas << chute
 
-  # Verificação do Chute
   if palavra_secreta.include?(chute)
     palavra_secreta.each_char.with_index do |letra, indice|
       letras_certas[indice] = chute if letra == chute
@@ -179,11 +199,16 @@ while erros_cometidos < 6 && letras_certas.include?("_")
   end
 end
 
-# Finalização do Jogo
 exibir_jogo(letras_certas, erros_cometidos, letras_utilizadas)
 
 if !letras_certas.include?("_")
   puts "🎉 Parabéns! Você venceu!"
+  print "Digite seu nome para o ranking: "
+  nome = gets.chomp.strip
+  nome = "Anônimo" if nome.empty?
+  salvar_ranking(nome, erros_cometidos)
+  puts "✅ Resultado salvo!"
+  sleep 1
 else
   puts "💀 Game Over! A palavra era: #{palavra_secreta}"
 end
