@@ -1,4 +1,18 @@
-# --- Jogo da Forca: Versão Visual (ASCII) ---
+require 'colorize'
+
+begin
+  require 'colorize'
+rescue LoadError
+  puts "Atenção: Instale a gem colorize para ver as cores (gem install colorize)"
+  # Criamos métodos falsos para o jogo não quebrar se a gem não existir
+  class String
+    def red; self; end
+    def green; self; end
+    def yellow; self; end
+    def blue; self; end
+    def cyan; self; end
+  end
+end
 
 # 1. Banco de Imagens
 FORCA_VISUAL = [
@@ -74,12 +88,12 @@ end
 
 def exibir_jogo(palavra_oculta, erros, tentativas)
   limpar_tela
-  puts "=== JOGO DA FORCA ==="
+  puts "=== JOGO DA FORCA ===".blue.bold
   puts FORCA_VISUAL[erros]
-  puts "\nPalavra: #{palavra_oculta.join(' ')}"
-  puts "Tentativas: #{tentativas.join(', ')}"
-  puts "Vidas restantes: #{6 - erros}"
-  puts "---------------------"
+  puts "\nPalavra:        #{palavra_oculta.join(' ')}".green.bold
+  puts "Tentativas:       #{tentativas.join(', ')}".yellow
+  puts "Vidas restantes:  #{6 - erros}"
+  puts "---------------------".blue
 end
 
 def carregar_dicionario
@@ -120,26 +134,32 @@ end
 
 def exibir_ranking
   limpar_tela
-  puts "🏆 --- RANKING DOS MESTRES --- 🏆"
+  puts "🏆 --- RANKING DOS MESTRES --- 🏆".cyan.bold
+  
   if !File.exist?("ranking.txt") || File.zero?("ranking.txt")
-    puts "O ranking está vazio. Seja o primeiro a vencer!"
+    puts "O ranking está vazio. Seja o primeiro a vencer!".yellow
   else
     jogadores = File.readlines("ranking.txt").map do |linha|
       nome, erros = linha.strip.split(";")
       { nome: nome, erros: erros.to_i }
     end
+
     ranking_ordenado = jogadores.sort_by { |j| j[:erros] }.first(5)
+
     ranking_ordenado.each_with_index do |j, i|
+      # --- O BLOCO ABAIXO É O QUE ESTAVA FALTANDO ---
       medalha = case i
                 when 0 then "🥇"
                 when 1 then "🥈"
                 when 2 then "🥉"
                 else "  "
                 end
-      puts "#{medalha} #{i + 1}. #{j[:nome].ljust(12)} | Erros: #{j[:erros]}"
+      # ----------------------------------------------
+      
+      puts "#{medalha} #{i + 1}. #{j[:nome].ljust(12)} | Erros: #{j[:erros]}".yellow
     end
   end
-  puts "-------------------------------\n"
+  puts "-------------------------------\n".cyan
   print "Pressione ENTER para começar o desafio..."
   gets
 end
@@ -175,13 +195,13 @@ while erros_cometidos < 6 && letras_certas.include?("_")
   chute = gets.chomp.upcase
 
   if chute.length != 1 || !chute.match?(/[A-Z]/)
-    puts "❌ Erro: Digite apenas UMA letra (A-Z)."
+    puts "❌ Erro: Digite apenas UMA letra (A-Z).".red.bold
     sleep 1
     next
   end
 
   if letras_utilizadas.include?(chute)
-    puts "⚠️ Você já tentou a letra #{chute}!"
+    puts "⚠️ Você já tentou a letra #{chute}!".yellow
     sleep 1
     next
   end
@@ -202,7 +222,7 @@ end
 exibir_jogo(letras_certas, erros_cometidos, letras_utilizadas)
 
 if !letras_certas.include?("_")
-  puts "🎉 Parabéns! Você venceu!"
+  puts "🎉 Parabéns! Você venceu!".green.bold
   print "Digite seu nome para o ranking: "
   nome = gets.chomp.strip
   nome = "Anônimo" if nome.empty?
@@ -210,5 +230,5 @@ if !letras_certas.include?("_")
   puts "✅ Resultado salvo!"
   sleep 1
 else
-  puts "💀 Game Over! A palavra era: #{palavra_secreta}"
+  puts "💀 Game Over! A palavra era: #{palavra_secreta}".red_bold
 end

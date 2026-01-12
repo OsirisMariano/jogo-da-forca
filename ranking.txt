@@ -1,5 +1,3 @@
-osiris;0
-mariano;4
-gafanhoto;
-osiris;1
-antônio;0
+Osiris;0
+Anônimo;1
+Mariano;3
