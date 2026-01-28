@@ -1,11 +1,2 @@
-Osiris;0
-Anônimo;1
-Mariano;3
-José;5
-Osiris Mariano;0
-Anonymous;1
-lima;0
-Anonymous;3
-Anonymous;1
-Anonymous;1
-Anonymous;0
+osiris;0; Easy
+mariano;1; Easy

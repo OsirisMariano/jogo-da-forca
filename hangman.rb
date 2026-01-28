@@ -79,7 +79,7 @@ HANGMAN_ART = [
 
 class Hangman
   def initialize
-    display_ranking
+    ranking_menu
     @category = choose_category
     @dictionary = load_dictionary
     @difficulty = choose_difficulty
@@ -101,6 +101,30 @@ class Hangman
   end
 
   private
+
+  def ranking_menu
+    loop do
+      clear_screen
+      puts "=== RANKING MENU === ".cyan.bold
+      puts "Which difficulty ranking do you want to see?"
+      puts "1. Easy"
+      puts "2. Medium"
+      puts "3. Hard"
+      puts "4. Skip to Game"
+      print "\nOption: "
+      choise = gets.chomp.to_i
+
+      case choise
+      when 1 then display_ranking("Easy")
+      when 2 then display_ranking("Medium")
+      when 3 then display_ranking("Hard")
+      when 4 then break
+      else
+        puts "❌ Invalid option!".red
+        sleep 1
+      end
+    end
+  end
 
   def choose_category
     loop do
@@ -180,34 +204,44 @@ class Hangman
     puts "---------------------".blue
   end
 
-  def display_ranking
+  def display_ranking(filter_difficulty = "Easy") # Valor padrão é Easy
     clear_screen
-    puts "🏆 --- MASTERS RANKING --- 🏆".cyan.bold
+    puts "🏆 --- #{filter_difficulty.upcase} RANKING --- 🏆".cyan.bold
     
     if !File.exist?("ranking.txt") || File.zero?("ranking.txt")
       puts "Ranking is empty. Be the first to win!".yellow
     else
+      # 1. Lemos todas as linhas
       players = File.readlines("ranking.txt").map do |line|
-        name, errors = line.strip.split(";")
-        { name: name, errors: errors.to_i }
+        name, errors, diff = line.strip.split(";")
+        { name: name, errors: errors.to_i, difficulty: diff }
       end
 
-      top_players = players.sort_by { |p| p[:errors] }.first(5)
+      # 2. FILTRAMOS apenas pela dificuldade desejada
+      filtered_players = players.select { |p| p[:difficulty].strip == filter_difficulty }
 
-      top_players.each_with_index do |p, i|
-        medal = case i
-                when 0 then "🥇"
-                when 1 then "🥈"
-                when 2 then "🥉"
-                else "  "
-                end
-        puts "#{medal} #{i + 1}. #{p[:name].ljust(12)} | Errors: #{p[:errors]}".yellow
+      if filtered_players.empty?
+        puts "No records yet for #{filter_difficulty} difficulty.".yellow
+      else
+        # 3. Ordenamos os filtrados pelos erros (do menor para o maior)
+        top_players = filtered_players.sort_by { |p| p[:errors] }.first(5)
+
+        top_players.each_with_index do |p, i|
+          medal = case i
+                  when 0 then "🥇"
+                  when 1 then "🥈"
+                  when 2 then "🥉"
+                  else "  "
+                  end
+          puts "#{medal} #{i + 1}. #{p[:name].to_s.ljust(12)} | Errors: #{p[:errors]}".yellow
+        end
       end
     end
     puts "-------------------------------\n".cyan
-    print "Press ENTER to start the challenge..."
+    print "Press ENTER to continue..."
     gets
   end
+
 
   # --- Logic Methods ---
   def active?
@@ -262,11 +296,17 @@ class Hangman
     print "Enter your name for the ranking: "
     name = gets.chomp.strip
     name = "Anonymous" if name.empty?
+
+    difficulty_name = case @difficulty
+                      when 1 then "Easy"
+                      when 2 then "Medium"
+                      when 3 then "Hard"
+                      end
     
     File.open("ranking.txt", "a") do |file|
-      file.puts("#{name};#{@wrong_attempts}")
+      file.puts("#{name};#{@wrong_attempts};#{difficulty_name}")
     end
-    puts "✅ Result saved!".green
+    puts "✅ Result saved in #{difficulty_name} mode!".green
     sleep 1
   end
 end
