@@ -79,8 +79,9 @@ HANGMAN_ART = [
 
 class Hangman
   def initialize
-    @dictionary = load_dictionary
     display_ranking
+    @category = choose_category
+    @dictionary = load_dictionary
     @difficulty = choose_difficulty
     @secret_word = select_word.upcase
     @correct_letters = Array.new(@secret_word.length, "_")
@@ -101,9 +102,30 @@ class Hangman
 
   private
 
+  def choose_category
+    loop do
+      clear_screen
+      puts "=== CHOOSE CATEGORY ===".cyan.bold
+      puts "1. Animals"
+      puts "2. Countries"
+      puts "3. Programming"
+      print "\nEscolha uma opção: "
+      choice = gets.chomp.to_i
+
+      case choice
+      when 1 then return "animals"
+      when 2 then return "countries"
+      when 3 then return "programming"
+      else
+        puts "❌ Invalid option!".red
+        sleep 1
+      end
+    end
+  end
+
   # --- Setup Methods ---
   def load_dictionary
-    filename = "palavras.txt"
+    filename = "data/#{@category}.txt"
     if File.exist?(filename)
       words = File.read(filename).split.map(&:strip).reject(&:empty?)
       return words unless words.empty?
