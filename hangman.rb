@@ -102,6 +102,29 @@ class Hangman
 
   private
 
+  def reveal_hint
+    # 1. Encontra os índices das letras que ainda são "_"
+    missing_indices = @correct_letters.each_index.select { |i| @correct_letters[i] == "_" }
+
+    # 2. Se por algum motivo não houver mais letras (segurança), encerra
+    return if missing_indices.empty?
+
+    # 3. Sorteia um desses índices e descobre qual letra mora lá na palavra secreta
+    random_index = missing_indices.sample
+    letter_to_reveal = @secret_word[random_index]
+
+    # 4. "Custo" da dica: aumenta as tentativas erradas
+    @wrong_attempts += 1
+    
+    # 5. Revela a letra em todas as posições onde ela aparece
+    @secret_word.each_char.with_index do |char, index|
+      @correct_letters[index] = char if char == letter_to_reveal
+    end
+
+    puts "\n💡 HINT: The letter '#{letter_to_reveal}' has been revealed!".cyan.bold
+    sleep 1.5
+  end
+
   def ranking_menu
     loop do
       clear_screen
@@ -254,8 +277,10 @@ class Hangman
   end
 
   def valid_guess?(guess)
+    return true if guess == "1"
+
     if guess.length != 1 || !guess.match?(/[A-Z]/)
-      puts "❌ Error: Type only ONE letter (A-Z).".red.bold
+      puts "❌ Error: Type only ONE letter (A-Z) or '1' for hint.".red.bold
       sleep 1
       return false
     end
@@ -268,28 +293,41 @@ class Hangman
     true
   end
 
-  def process_guess(letter)
-    @used_letters << letter
-    if @secret_word.include?(letter)
-      @secret_word.each_char.with_index do |char, index|
-        @correct_letters[index] = letter if char == letter
+  def process_guess(input)
+    if input == "1"
+      # Verificação de segurança: precisa ter mais de 1 vida para "pagar" a dica
+      if @wrong_attempts < 5
+        reveal_hint
+      else
+        puts "⚠️ Not enough lives to ask for a hint!".yellow.bold
+        sleep 1.5
       end
     else
-      puts "❌ Incorrect letter!".red
-      @wrong_attempts += 1
-      sleep 1
+      # Lógica normal para letras
+      letter = input
+      @used_letters << letter
+      
+      if @secret_word.include?(letter)
+        @secret_word.each_char.with_index do |char, index|
+          @correct_letters[index] = letter if char == letter
+        end
+      else
+        puts "❌ Incorrect letter!".red
+        @wrong_attempts += 1
+        sleep 1
+      end
     end
   end
 
   # --- Finalization Methods ---
-  def finalize_game
-    render_game
-    if !@correct_letters.include?("_")
-      puts "🎉 Congratulations! You won!".green.bold
-      save_ranking
-    else
-      puts "💀 Game Over! The word was: #{@secret_word}".red.bold
-    end
+  def render_game
+    clear_screen
+    puts "=== HANGMAN GAME ===".blue.bold
+    puts HANGMAN_ART[@wrong_attempts]
+    puts "\nWord:       #{@correct_letters.join(' ')}".green.bold
+    puts "Attempts:    #{@used_letters.join(', ')}".yellow
+    puts "Remaining:   #{6 - @wrong_attempts}"
+    puts "---------------------".blue
   end
 
   def save_ranking
