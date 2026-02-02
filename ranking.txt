@@ -1,3 +1,4 @@
 osiris;0; Easy
 mariano;1; Easy
 mariano;0;Easy
+osiris;0;Easy
