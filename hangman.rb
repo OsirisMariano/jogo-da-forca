@@ -10,6 +10,11 @@ rescue LoadError
   end
 end
 
+def clear_screen
+  Gem.win_platform? ? system("cls") : system("clear")
+end
+
+
 # --- Constants ---
 HANGMAN_ART = [
   <<~ART,
@@ -78,7 +83,11 @@ HANGMAN_ART = [
 ]
 
 class Hangman
-  def initialize
+  attr_reader :current_score
+  def initialize(player_name , initial_score)
+    @player_name = player_name
+    @current_score = initial_score
+
     ranking_menu
     @category = choose_category
     @dictionary = load_dictionary
@@ -331,10 +340,6 @@ class Hangman
   end
 
   def save_ranking
-    print "Enter your name for the ranking: "
-    name = gets.chomp.strip
-    name = "Anonymous" if name.empty?
-
     difficulty_name = case @difficulty
                       when 1 then "Easy"
                       when 2 then "Medium"
@@ -342,13 +347,43 @@ class Hangman
                       end
     
     File.open("ranking.txt", "a") do |file|
-      file.puts("#{name};#{@wrong_attempts};#{difficulty_name}")
+      file.puts("#{@player_name};#{@wrong_attempts};#{difficulty_name}")
     end
-    puts "✅ Result saved in #{difficulty_name} mode!".green
+    puts "✅ Result saved in #{@play_name}!".green
     sleep 1
+  end
+
+  def finalize_game
+    render_game
+    if !@correct_letters.include?("_")
+      puts "\n🎉 Congratulations, #{@player_name}! You guessed the word: #{@secret_word}".green.bold
+      save_ranking
+    else
+      puts "\n💀 Game Over! The secret word was: #{@secret_word}".red.bold
+    end
   end
 end
 
-# --- Execution ---
-game = Hangman.new
-game.play
+# --- Session Execution ---
+clear_screen
+puts "Welcome to Hangman Ultimate!".cyan.bold
+print "Enter your name to start the session: "
+player_name = gets.chomp.strip
+player_name = "Anonymous" if player_name.empty?
+
+session_score = 0
+play_again = true
+
+while play_again
+  game = Hangman.new(player_name, session_score)
+  game.play
+  
+  # Após o jogo acabar, pegamos o score atualizado
+  session_score = game.current_score 
+
+  print "\nDo you want to play another round? (Y/N): "
+  choice = gets.chomp.upcase
+  play_again = (choice == 'Y')
+end
+
+puts "\nThanks for playing, #{player_name}! Your final score was: #{session_score}".green.bold
