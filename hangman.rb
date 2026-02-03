@@ -84,6 +84,12 @@ HANGMAN_ART = [
 
 class Hangman
 
+  # Larguras das colunas
+  COL_RANK = 6
+  COL_NAME = 15
+  COL_SCORE = 8
+  COL_ERRS = 8
+
   # Regras de Pontuação
   POINTS_PER_LETTER = 20
   POINTS_FOR_WIN    = 100
@@ -116,6 +122,10 @@ class Hangman
   end
 
   private
+
+  def draw_line
+    "+" + "-" * (COL_RANK + 2) + "+" + "-" * (COL_NAME + 2) + "+" + "-" * (COL_SCORE + 2) + "+" + "-" * (COL_ERRS + 2) + "+"
+  end
 
   def difficulty_multiplier
     case @difficulty
@@ -276,18 +286,30 @@ class Hangman
       else
         top_players = filtered_players.sort_by { |p| -p[:score] }.first(5)
 
+        puts draw_line.blue
+        puts "| #{"RANK".center(COL_RANK)} | #{"PLAYER".center(COL_NAME)} | #{"SCORE".center(COL_SCORE)} | #{"ERRORS".center(COL_ERRS)} |".blue.bold
+
         top_players.each_with_index do |p, i|
           medal = case i
                   when 0 then "🥇"
                   when 1 then "🥈"
                   when 2 then "🥉"
-                  else "  "
+                  else " #{i + 1} "
                   end
-          puts "#{medal} #{i + 1}. #{p[:name].to_s.ljust(12)} | Score: #{p[:score].to_s.ljust(6)} | Errors: #{p[:errors]}".yellow
+          
+          # Alinhando os dados
+          rank_cell  = medal.center(COL_RANK - 1)
+          name_cell  = p[:name].to_s.ljust(COL_NAME)
+          score_cell = p[:score].to_s.center(COL_SCORE)
+          errs_cell  = p[:errors].to_s.center(COL_ERRS)
+
+          puts "| #{rank_cell} | #{name_cell} | #{score_cell} | #{errs_cell} |".yellow
         end
+
+        puts draw_line.blue
       end
     end
-    puts "-------------------------------\n".cyan
+    #puts "-------------------------------\n".cyan
     print "Press ENTER to continue..."
     gets
   end
