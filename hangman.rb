@@ -83,6 +83,12 @@ HANGMAN_ART = [
 ]
 
 class Hangman
+
+  # Regras de Pontuação
+  POINTS_PER_LETTER = 20
+  POINTS_FOR_WIN    = 100
+  HINT_PENALTY      = 50
+
   attr_reader :current_score
   def initialize(player_name , initial_score)
     @player_name = player_name
@@ -110,6 +116,15 @@ class Hangman
   end
 
   private
+
+  def difficulty_multiplier
+    case @difficulty
+    when 1 then 1.0
+    when 2 then 1.5
+    when 3 then 2.0
+    else 1.0
+    end
+  end
 
   def reveal_hint
     # 1. Encontra os índices das letras que ainda são "_"
@@ -230,6 +245,10 @@ class Hangman
     clear_screen
     puts "=== HANGMAN GAME ===".blue.bold
     puts HANGMAN_ART[@wrong_attempts]
+
+    mult_text = "x#{difficlty_multiplier}"
+    puts "Score: #{@current_score}".yellow.bold + "(#{mult_text})".cyan
+
     puts "\nWord:        #{@correct_letters.join(' ')}".green.bold
     puts "Attempts:    #{@used_letters.join(', ')}".yellow
     puts "Remaining:   #{6 - @wrong_attempts}"
@@ -245,8 +264,8 @@ class Hangman
     else
       # 1. Lemos todas as linhas
       players = File.readlines("ranking.txt").map do |line|
-        name, errors, diff = line.strip.split(";")
-        { name: name, errors: errors.to_i, difficulty: diff }
+        name, score, errors, diff = line.strip.split(";")
+        { name: name, score: score.to_i, errors: errors.to_i, difficulty: diff }
       end
 
       # 2. FILTRAMOS apenas pela dificuldade desejada
@@ -255,8 +274,7 @@ class Hangman
       if filtered_players.empty?
         puts "No records yet for #{filter_difficulty} difficulty.".yellow
       else
-        # 3. Ordenamos os filtrados pelos erros (do menor para o maior)
-        top_players = filtered_players.sort_by { |p| p[:errors] }.first(5)
+        top_players = filtered_players.sort_by { |p| -p[:score] }.first(5)
 
         top_players.each_with_index do |p, i|
           medal = case i
@@ -265,7 +283,7 @@ class Hangman
                   when 2 then "🥉"
                   else "  "
                   end
-          puts "#{medal} #{i + 1}. #{p[:name].to_s.ljust(12)} | Errors: #{p[:errors]}".yellow
+          puts "#{medal} #{i + 1}. #{p[:name].to_s.ljust(12)} | Score: #{p[:score].to_s.ljust(6)} | Errors: #{p[:errors]}".yellow
         end
       end
     end
@@ -304,22 +322,25 @@ class Hangman
 
   def process_guess(input)
     if input == "1"
-      # Verificação de segurança: precisa ter mais de 1 vida para "pagar" a dica
       if @wrong_attempts < 5
+        @current_score -= HINT_PENALTY
         reveal_hint
       else
         puts "⚠️ Not enough lives to ask for a hint!".yellow.bold
         sleep 1.5
       end
     else
-      # Lógica normal para letras
       letter = input
       @used_letters << letter
-      
+
       if @secret_word.include?(letter)
+        point = (POINTS_PER_LETTER * difficulty_multiplier).to_i
+        @current_score += point
+        puts "✅ Correct letter! You earned #{point} points.".green
         @secret_word.each_char.with_index do |char, index|
           @correct_letters[index] = letter if char == letter
         end
+        sleep 0.5
       else
         puts "❌ Incorrect letter!".red
         @wrong_attempts += 1
@@ -347,19 +368,24 @@ class Hangman
                       end
     
     File.open("ranking.txt", "a") do |file|
-      file.puts("#{@player_name};#{@wrong_attempts};#{difficulty_name}")
+      file.puts("#{@player_name};#{@current_score};#{@wrong_attempts};#{difficulty_name}")
     end
-    puts "✅ Result saved in #{@play_name}!".green
+    puts "✅ Result saved in #{@play_name}" .green
     sleep 1
   end
 
   def finalize_game
     render_game
     if !@correct_letters.include?("_")
+      victory_points = (POINTS_FOR_WIN * difficulty_multiplier).to_i
+      @current_score += victory_points
+
       puts "\n🎉 Congratulations, #{@player_name}! You guessed the word: #{@secret_word}".green.bold
+      puts "Final Score: #{@current_score}".yellow.bold
       save_ranking
     else
       puts "\n💀 Game Over! The secret word was: #{@secret_word}".red.bold
+      puts "Final Score: #{@current_score}".yellow.bold
     end
   end
 end
