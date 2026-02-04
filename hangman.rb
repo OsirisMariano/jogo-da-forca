@@ -1,6 +1,6 @@
-require 'colorize'
+require 'json'
 
-# Fallback for colors if gem is missing
+# --- Fallback para cores se a gem colorize não estiver disponível ---
 begin
   require 'colorize'
 rescue LoadError
@@ -10,12 +10,7 @@ rescue LoadError
   end
 end
 
-def clear_screen
-  Gem.win_platform? ? system("cls") : system("clear")
-end
-
-
-# --- Constants ---
+# --- Constantes de Arte e Interface ---
 HANGMAN_ART = [
   <<~ART,
     +---+
@@ -83,8 +78,7 @@ HANGMAN_ART = [
 ]
 
 class Hangman
-
-  # Larguras das colunas
+  # Configurações de Interface
   COL_RANK = 6
   COL_NAME = 15
   COL_SCORE = 8
@@ -96,7 +90,8 @@ class Hangman
   HINT_PENALTY      = 50
 
   attr_reader :current_score
-  def initialize(player_name , initial_score)
+
+  def initialize(player_name, initial_score)
     @player_name = player_name
     @current_score = initial_score
 
@@ -110,18 +105,20 @@ class Hangman
     @used_letters = []
   end
 
-  # --- Public Method: The entry point ---
   def play
     while active?
       render_game
       guess = ask_for_guess
       process_guess(guess) if valid_guess?(guess)
     end
-
     finalize_game
   end
 
   private
+
+  def clear_screen
+    Gem.win_platform? ? system("cls") : system("clear")
+  end
 
   def draw_line
     "+" + "-" * (COL_RANK + 2) + "+" + "-" * (COL_NAME + 2) + "+" + "-" * (COL_SCORE + 2) + "+" + "-" * (COL_ERRS + 2) + "+"
@@ -136,29 +133,6 @@ class Hangman
     end
   end
 
-  def reveal_hint
-    # 1. Encontra os índices das letras que ainda são "_"
-    missing_indices = @correct_letters.each_index.select { |i| @correct_letters[i] == "_" }
-
-    # 2. Se por algum motivo não houver mais letras (segurança), encerra
-    return if missing_indices.empty?
-
-    # 3. Sorteia um desses índices e descobre qual letra mora lá na palavra secreta
-    random_index = missing_indices.sample
-    letter_to_reveal = @secret_word[random_index]
-
-    # 4. "Custo" da dica: aumenta as tentativas erradas
-    @wrong_attempts += 1
-    
-    # 5. Revela a letra em todas as posições onde ela aparece
-    @secret_word.each_char.with_index do |char, index|
-      @correct_letters[index] = char if char == letter_to_reveal
-    end
-
-    puts "\n💡 HINT: The letter '#{letter_to_reveal}' has been revealed!".cyan.bold
-    sleep 1.5
-  end
-
   def ranking_menu
     loop do
       clear_screen
@@ -169,9 +143,9 @@ class Hangman
       puts "3. Hard"
       puts "4. Skip to Game"
       print "\nOption: "
-      choise = gets.chomp.to_i
+      choice = gets.chomp.to_i
 
-      case choise
+      case choice
       when 1 then display_ranking("Easy")
       when 2 then display_ranking("Medium")
       when 3 then display_ranking("Hard")
@@ -183,6 +157,49 @@ class Hangman
     end
   end
 
+  def display_ranking(filter_difficulty)
+    clear_screen
+    filename = "ranking.json"
+    puts "🏆 --- #{filter_difficulty.upcase} RANKING --- 🏆".cyan.bold
+    
+    if !File.exist?(filename) || File.zero?(filename)
+      puts "\nRanking is empty. Be the first to win!".yellow
+    else
+      file_content = File.read(filename)
+      players = JSON.parse(file_content, symbolize_names: true)
+      filtered_players = players.select { |p| p[:difficulty] == filter_difficulty }
+
+      if filtered_players.empty?
+        puts "\nNo records yet for #{filter_difficulty} difficulty.".yellow
+      else
+        top_players = filtered_players.sort_by { |p| -p[:score] }.first(5)
+
+        puts draw_line.blue
+        puts "| #{"RANK".center(COL_RANK)} | #{"PLAYER".center(COL_NAME)} | #{"SCORE".center(COL_SCORE)} | #{"ERRORS".center(COL_ERRS)} |".blue.bold
+        puts draw_line.blue
+
+        top_players.each_with_index do |p, i|
+          medal = case i
+                  when 0 then "🥇"
+                  when 1 then "🥈"
+                  when 2 then "🥉"
+                  else " #{i + 1} "
+                  end
+          
+          rank_cell  = medal.center(COL_RANK - 1)
+          name_cell  = p[:name].to_s.ljust(COL_NAME)
+          score_cell = p[:score].to_s.center(COL_SCORE)
+          errs_cell  = p[:errors].to_s.center(COL_ERRS)
+
+          puts "| #{rank_cell} | #{name_cell} | #{score_cell} | #{errs_cell} |".yellow
+        end
+        puts draw_line.blue
+      end
+    end
+    print "\nPress ENTER to return to menu..."
+    gets
+  end
+
   def choose_category
     loop do
       clear_screen
@@ -190,7 +207,7 @@ class Hangman
       puts "1. Animals"
       puts "2. Countries"
       puts "3. Programming"
-      print "\nEscolha uma opção: "
+      print "\nChoice: "
       choice = gets.chomp.to_i
 
       case choice
@@ -204,17 +221,14 @@ class Hangman
     end
   end
 
-  # --- Setup Methods ---
   def load_dictionary
     filename = "data/#{@category}.txt"
     if File.exist?(filename)
       words = File.read(filename).split.map(&:strip).reject(&:empty?)
       return words unless words.empty?
-      
-      puts "⚠️ words.txt is empty. Using default word.".yellow
       ["RUBY"]
     else
-      puts "❌ Error: 'palavras.txt' not found!".red
+      puts "❌ Error: Category file '#{filename}' not found!".red
       exit
     end
   end
@@ -242,82 +256,19 @@ class Hangman
       when 3 then word.length > 10
       end
     end
-
     filtered.empty? ? @dictionary.sample : filtered.sample
-  end
-
-  # --- Interface Methods ---
-  def clear_screen
-    Gem.win_platform? ? system("cls") : system("clear")
   end
 
   def render_game
     clear_screen
     puts "=== HANGMAN GAME ===".blue.bold
+    puts "Player: #{@player_name} | Score: #{@current_score}".cyan
     puts HANGMAN_ART[@wrong_attempts]
-
-    mult_text = "x#{difficlty_multiplier}"
-    puts "Score: #{@current_score}".yellow.bold + "(#{mult_text})".cyan
-
-    puts "\nWord:        #{@correct_letters.join(' ')}".green.bold
-    puts "Attempts:    #{@used_letters.join(', ')}".yellow
-    puts "Remaining:   #{6 - @wrong_attempts}"
+    puts "\nWord:       #{@correct_letters.join(' ')}".green.bold
+    puts "Used letters: #{@used_letters.join(', ')}".yellow
+    puts "Remaining lives: #{6 - @wrong_attempts}"
+    puts "Type '1' for a HINT (-#{HINT_PENALTY} pts + 1 error)".magenta
     puts "---------------------".blue
-  end
-
-  def display_ranking(filter_difficulty = "Easy") # Valor padrão é Easy
-    clear_screen
-    puts "🏆 --- #{filter_difficulty.upcase} RANKING --- 🏆".cyan.bold
-    
-    if !File.exist?("ranking.txt") || File.zero?("ranking.txt")
-      puts "Ranking is empty. Be the first to win!".yellow
-    else
-      # 1. Lemos todas as linhas
-      players = File.readlines("ranking.txt").map do |line|
-        name, score, errors, diff = line.strip.split(";")
-        { name: name, score: score.to_i, errors: errors.to_i, difficulty: diff }
-      end
-
-      # 2. FILTRAMOS apenas pela dificuldade desejada
-      filtered_players = players.select { |p| p[:difficulty].strip == filter_difficulty }
-
-      if filtered_players.empty?
-        puts "No records yet for #{filter_difficulty} difficulty.".yellow
-      else
-        top_players = filtered_players.sort_by { |p| -p[:score] }.first(5)
-
-        puts draw_line.blue
-        puts "| #{"RANK".center(COL_RANK)} | #{"PLAYER".center(COL_NAME)} | #{"SCORE".center(COL_SCORE)} | #{"ERRORS".center(COL_ERRS)} |".blue.bold
-
-        top_players.each_with_index do |p, i|
-          medal = case i
-                  when 0 then "🥇"
-                  when 1 then "🥈"
-                  when 2 then "🥉"
-                  else " #{i + 1} "
-                  end
-          
-          # Alinhando os dados
-          rank_cell  = medal.center(COL_RANK - 1)
-          name_cell  = p[:name].to_s.ljust(COL_NAME)
-          score_cell = p[:score].to_s.center(COL_SCORE)
-          errs_cell  = p[:errors].to_s.center(COL_ERRS)
-
-          puts "| #{rank_cell} | #{name_cell} | #{score_cell} | #{errs_cell} |".yellow
-        end
-
-        puts draw_line.blue
-      end
-    end
-    #puts "-------------------------------\n".cyan
-    print "Press ENTER to continue..."
-    gets
-  end
-
-
-  # --- Logic Methods ---
-  def active?
-    @wrong_attempts < 6 && @correct_letters.include?("_")
   end
 
   def ask_for_guess
@@ -327,13 +278,11 @@ class Hangman
 
   def valid_guess?(guess)
     return true if guess == "1"
-
     if guess.length != 1 || !guess.match?(/[A-Z]/)
-      puts "❌ Error: Type only ONE letter (A-Z) or '1' for hint.".red.bold
+      puts "❌ Error: Type only ONE letter (A-Z).".red.bold
       sleep 1
       return false
     end
-
     if @used_letters.include?(guess)
       puts "⚠️ You already tried the letter #{guess}!".yellow
       sleep 1
@@ -352,16 +301,12 @@ class Hangman
         sleep 1.5
       end
     else
-      letter = input
-      @used_letters << letter
-
-      if @secret_word.include?(letter)
-        point = (POINTS_PER_LETTER * difficulty_multiplier).to_i
-        @current_score += point
-        puts "✅ Correct letter! You earned #{point} points.".green
-        @secret_word.each_char.with_index do |char, index|
-          @correct_letters[index] = letter if char == letter
-        end
+      @used_letters << input
+      if @secret_word.include?(input)
+        points = (POINTS_PER_LETTER * difficulty_multiplier).to_i
+        @current_score += points
+        puts "✅ Correct letter! +#{points} points.".green
+        @secret_word.each_char.with_index { |char, i| @correct_letters[i] = input if char == input }
         sleep 0.5
       else
         puts "❌ Incorrect letter!".red
@@ -371,39 +316,52 @@ class Hangman
     end
   end
 
-  # --- Finalization Methods ---
-  def render_game
-    clear_screen
-    puts "=== HANGMAN GAME ===".blue.bold
-    puts HANGMAN_ART[@wrong_attempts]
-    puts "\nWord:       #{@correct_letters.join(' ')}".green.bold
-    puts "Attempts:    #{@used_letters.join(', ')}".yellow
-    puts "Remaining:   #{6 - @wrong_attempts}"
-    puts "---------------------".blue
+  def reveal_hint
+    missing_indices = @correct_letters.each_index.select { |i| @correct_letters[i] == "_" }
+    return if missing_indices.empty?
+
+    random_index = missing_indices.sample
+    letter_to_reveal = @secret_word[random_index]
+    @wrong_attempts += 1
+    
+    @secret_word.each_char.with_index do |char, index|
+      @correct_letters[index] = char if char == letter_to_reveal
+    end
+    puts "\n💡 HINT: The letter '#{letter_to_reveal}' has been revealed!".magenta.bold
+    sleep 1.5
+  end
+
+  def active?
+    @wrong_attempts < 6 && @correct_letters.include?("_")
   end
 
   def save_ranking
-    difficulty_name = case @difficulty
-                      when 1 then "Easy"
-                      when 2 then "Medium"
-                      when 3 then "Hard"
-                      end
-    
-    File.open("ranking.txt", "a") do |file|
-      file.puts("#{@player_name};#{@current_score};#{@wrong_attempts};#{difficulty_name}")
-    end
-    puts "✅ Result saved in #{@play_name}" .green
+    filename = "ranking.json"
+    new_entry = {
+      name: @player_name,
+      score: @current_score,
+      errors: @wrong_attempts,
+      difficulty: case @difficulty
+                  when 1 then "Easy"
+                  when 2 then "Medium"
+                  when 3 then "Hard"
+                  end
+    }
+
+    file_data = File.exist?(filename) && !File.zero?(filename) ? JSON.parse(File.read(filename)) : []
+    file_data << new_entry
+    File.write(filename, JSON.pretty_generate(file_data))
+    puts "🏆 Your score has been saved!".green
     sleep 1
   end
 
   def finalize_game
     render_game
     if !@correct_letters.include?("_")
-      victory_points = (POINTS_FOR_WIN * difficulty_multiplier).to_i
-      @current_score += victory_points
-
+      victory_bonus = (POINTS_FOR_WIN * difficulty_multiplier).to_i
+      @current_score += victory_bonus
       puts "\n🎉 Congratulations, #{@player_name}! You guessed the word: #{@secret_word}".green.bold
-      puts "Final Score: #{@current_score}".yellow.bold
+      puts "Final Score: #{@current_score} (+#{victory_bonus} victory bonus)".yellow.bold
       save_ranking
     else
       puts "\n💀 Game Over! The secret word was: #{@secret_word}".red.bold
@@ -412,26 +370,22 @@ class Hangman
   end
 end
 
-# --- Session Execution ---
-clear_screen
+# --- Execução da Sessão ---
+clear_screen = lambda { Gem.win_platform? ? system("cls") : system("clear") }
+clear_screen.call
 puts "Welcome to Hangman Ultimate!".cyan.bold
-print "Enter your name to start the session: "
+print "Enter your name: "
 player_name = gets.chomp.strip
 player_name = "Anonymous" if player_name.empty?
 
 session_score = 0
-play_again = true
-
-while play_again
+loop do
   game = Hangman.new(player_name, session_score)
   game.play
-  
-  # Após o jogo acabar, pegamos o score atualizado
   session_score = game.current_score 
 
   print "\nDo you want to play another round? (Y/N): "
-  choice = gets.chomp.upcase
-  play_again = (choice == 'Y')
+  break unless gets.chomp.upcase == 'Y'
 end
 
-puts "\nThanks for playing, #{player_name}! Your final score was: #{session_score}".green.bold
+puts "\nThanks for playing, #{player_name}! Final Score: #{session_score}".green.bold
