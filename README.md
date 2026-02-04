@@ -13,4 +13,4 @@ Repositório dedicado ao desenvolvimento de um simulador de Jogo da Forca utiliz
 2. Clone o repositório.
 3. Execute o comando:
    ```bash
-   ruby forca.rb
+   ruby hangman.rb
