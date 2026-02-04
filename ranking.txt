@@ -1,2 +1,0 @@
-osirs;180;0;Easy
-osirs;150;3;Easy
