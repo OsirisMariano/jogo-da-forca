@@ -7,6 +7,7 @@ rescue LoadError
   class String
     def red; self; end; def green; self; end; def yellow; self; end
     def blue; self; end; def cyan; self; end; def bold; self; end
+    def magenta; self; end; def light_black; self; end
   end
 end
 
@@ -94,6 +95,7 @@ class Hangman
   def initialize(player_name, initial_score)
     @player_name = player_name
     @current_score = initial_score
+    @message = ""
 
     ranking_menu
     @category = choose_category
@@ -228,8 +230,9 @@ class Hangman
       return words unless words.empty?
       ["RUBY"]
     else
-      puts "❌ Error: Category file '#{filename}' not found!".red
-      exit
+      # Fallback se a pasta data não existir
+      Dir.mkdir("data") unless Dir.exist?("data")
+      ["RUBY", "PROGRAMMING", "GITHUB"]
     end
   end
 
@@ -263,9 +266,23 @@ class Hangman
     clear_screen
     puts "=== HANGMAN GAME ===".blue.bold
     puts "Player: #{@player_name} | Score: #{@current_score}".cyan
-    puts HANGMAN_ART[@wrong_attempts]
-    puts "\nWord:       #{@correct_letters.join(' ')}".green.bold
-    puts "Used letters: #{@used_letters.join(', ')}".yellow
+    
+    if !@message.empty?
+      puts "\n#{@message}".yellow.bold 
+      @message = "" 
+    end
+
+    hangman_color = case @wrong_attempts
+                    when 0..2 then :cyan
+                    when 3..4 then :yellow
+                    else :red
+                    end
+
+    puts HANGMAN_ART[@wrong_attempts].colorize(hangman_color)
+    
+    puts "\nWord:       #{@correct_letters.join(' ')}"
+    puts "Used letters: #{@used_letters.join(', ')}".light_black
+    
     puts "Remaining lives: #{6 - @wrong_attempts}"
     puts "Type '1' for a HINT (-#{HINT_PENALTY} pts + 1 error)".magenta
     puts "---------------------".blue
@@ -279,13 +296,11 @@ class Hangman
   def valid_guess?(guess)
     return true if guess == "1"
     if guess.length != 1 || !guess.match?(/[A-Z]/)
-      puts "❌ Error: Type only ONE letter (A-Z).".red.bold
-      sleep 1
+      @message = "❌ Error: Type only ONE letter (A-Z)."
       return false
     end
     if @used_letters.include?(guess)
-      puts "⚠️ You already tried the letter #{guess}!".yellow
-      sleep 1
+      @message = "⚠️ You already tried the letter #{guess}!"
       return false
     end
     true
@@ -297,21 +312,20 @@ class Hangman
         @current_score -= HINT_PENALTY
         reveal_hint
       else
-        puts "⚠️ Not enough lives to ask for a hint!".yellow.bold
-        sleep 1.5
+        @message = "⚠️ Not enough lives to ask for a hint!"
       end
     else
       @used_letters << input
       if @secret_word.include?(input)
         points = (POINTS_PER_LETTER * difficulty_multiplier).to_i
         @current_score += points
-        puts "✅ Correct letter! +#{points} points.".green
-        @secret_word.each_char.with_index { |char, i| @correct_letters[i] = input if char == input }
-        sleep 0.5
+        @message = "✅ Correct! +#{points} points."
+        @secret_word.each_char.with_index do |char, i|
+          @correct_letters[i] = input.green.bold if char == input
+        end
       else
-        puts "❌ Incorrect letter!".red
+        @message = "❌ Incorrect letter!"
         @wrong_attempts += 1
-        sleep 1
       end
     end
   end
@@ -325,10 +339,9 @@ class Hangman
     @wrong_attempts += 1
     
     @secret_word.each_char.with_index do |char, index|
-      @correct_letters[index] = char if char == letter_to_reveal
+      @correct_letters[index] = char.magenta.bold if char == letter_to_reveal
     end
-    puts "\n💡 HINT: The letter '#{letter_to_reveal}' has been revealed!".magenta.bold
-    sleep 1.5
+    @message = "💡 HINT! The letter '#{letter_to_reveal}' has been revealed."
   end
 
   def active?
@@ -371,8 +384,8 @@ class Hangman
 end
 
 # --- Execução da Sessão ---
-clear_screen = lambda { Gem.win_platform? ? system("cls") : system("clear") }
-clear_screen.call
+clear_screen_proc = lambda { Gem.win_platform? ? system("cls") : system("clear") }
+clear_screen_proc.call
 puts "Welcome to Hangman Ultimate!".cyan.bold
 print "Enter your name: "
 player_name = gets.chomp.strip
