@@ -164,40 +164,51 @@ class Hangman
     filename = "ranking.json"
     puts "🏆 --- #{filter_difficulty.upcase} RANKING --- 🏆".cyan.bold
     
-    if !File.exist?(filename) || File.zero?(filename)
-      puts "\nRanking is empty. Be the first to win!".yellow
-    else
-      file_content = File.read(filename)
-      players = JSON.parse(file_content, symbolize_names: true)
-      filtered_players = players.select { |p| p[:difficulty] == filter_difficulty }
-
-      if filtered_players.empty?
-        puts "\nNo records yet for #{filter_difficulty} difficulty.".yellow
+    # 1. Envolvemos a leitura em um bloco de tratamento de erro
+    begin
+      if !File.exist?(filename) || File.zero?(filename)
+        puts "\nRanking is empty. Be the first to win!".yellow
       else
-        top_players = filtered_players.sort_by { |p| -p[:score] }.first(5)
+        file_content = File.read(filename)
+        players = JSON.parse(file_content, symbolize_names: true)
+        filtered_players = players.select { |p| p[:difficulty] == filter_difficulty }
 
-        puts draw_line.blue
-        puts "| #{"RANK".center(COL_RANK)} | #{"PLAYER".center(COL_NAME)} | #{"SCORE".center(COL_SCORE)} | #{"ERRORS".center(COL_ERRS)} |".blue.bold
-        puts draw_line.blue
+        if filtered_players.empty?
+          puts "\nNo records yet for #{filter_difficulty} difficulty.".yellow
+        else
+          top_players = filtered_players.sort_by { |p| -p[:score] }.first(5)
 
-        top_players.each_with_index do |p, i|
-          medal = case i
-                  when 0 then "🥇"
-                  when 1 then "🥈"
-                  when 2 then "🥉"
-                  else " #{i + 1} "
-                  end
-          
-          rank_cell  = medal.center(COL_RANK - 1)
-          name_cell  = p[:name].to_s.ljust(COL_NAME)
-          score_cell = p[:score].to_s.center(COL_SCORE)
-          errs_cell  = p[:errors].to_s.center(COL_ERRS)
+          puts draw_line.blue
+          puts "| #{"RANK".center(COL_RANK)} | #{"PLAYER".center(COL_NAME)} | #{"SCORE".center(COL_SCORE)} | #{"ERRORS".center(COL_ERRS)} |".blue.bold
+          puts draw_line.blue
 
-          puts "| #{rank_cell} | #{name_cell} | #{score_cell} | #{errs_cell} |".yellow
+          top_players.each_with_index do |p, i|
+            medal = case i
+                    when 0 then "🥇"
+                    when 1 then "🥈"
+                    when 2 then "🥉"
+                    else " #{i + 1} "
+                    end
+            
+            rank_cell  = medal.center(COL_RANK - 1)
+            name_cell  = p[:name].to_s.ljust(COL_NAME)
+            score_cell = p[:score].to_s.center(COL_SCORE)
+            errs_cell  = p[:errors].to_s.center(COL_ERRS)
+
+            puts "| #{rank_cell} | #{name_cell} | #{score_cell} | #{errs_cell} |".yellow
+          end
+          puts draw_line.blue
         end
-        puts draw_line.blue
       end
+    rescue JSON::ParserError
+      # 2. Se o arquivo estiver corrompido, avisamos o usuário em vez de quebrar o jogo
+      puts "\n⚠️  Error: Ranking data is corrupted and cannot be read.".red
+      puts "A backup might be needed or the file will be reset on next save.".red
+    rescue StandardError => e
+      # 3. Captura qualquer outro erro inesperado (ex: falta de permissão de leitura)
+      puts "\n❌ Unexpected error: #{e.message}".red
     end
+
     print "\nPress ENTER to return to menu..."
     gets
   end
@@ -350,8 +361,12 @@ class Hangman
 
   def save_ranking
     filename = "ranking.json"
+
+    clean_name = @player_name.gsub(/[^a-zA-Z0-9]/, '').strip[0..12]
+    clean_name = "Anonymous" if clean_name.empty?
+
     new_entry = {
-      name: @player_name,
+      name: clean_name,
       score: @current_score,
       errors: @wrong_attempts,
       difficulty: case @difficulty
@@ -360,6 +375,18 @@ class Hangman
                   when 3 then "Hard"
                   end
     }
+
+    begin 
+      file_data = []
+      if File.exist?(filename) && !File.zero?(filename)
+        file_content = File.read(filename)
+        file_data = JSON.parse(file_content)
+        
+      end
+
+      file_data << new_entry
+      File.write("(#{filename}.bak", JSON.pretty_generate(file_data)) if File.exist?(filename)
+    end
 
     file_data = File.exist?(filename) && !File.zero?(filename) ? JSON.parse(File.read(filename)) : []
     file_data << new_entry
