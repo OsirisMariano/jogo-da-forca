@@ -91,10 +91,13 @@ class Hangman
   HINT_PENALTY      = 50
 
   attr_reader :current_score
+  attr_reader :secret_word
 
-  def initialize(player_name, initial_score)
+
+  def initialize(player_name, initial_score, excluded_words = [])
     @player_name = player_name
     @current_score = initial_score
+    @excluded_words = excluded_words
     @message = ""
 
     ranking_menu
@@ -220,6 +223,7 @@ class Hangman
       puts "1. Animals"
       puts "2. Countries"
       puts "3. Programming"
+      puts "4. Surprise (All categories)"
       print "\nChoice: "
       choice = gets.chomp.to_i
 
@@ -227,6 +231,7 @@ class Hangman
       when 1 then return "animals"
       when 2 then return "countries"
       when 3 then return "programming"
+      when 4 then return "surprise"
       else
         puts "❌ Invalid option!".red
         sleep 1
@@ -235,15 +240,24 @@ class Hangman
   end
 
   def load_dictionary
+    if @category == "surprise"
+      all_words = []
+      Dir.glob("data/*.txt").each do |file|
+        # O .read.split quebra por QUALQUER espaço em branco (espaço, tab, nova linha)
+        words = File.read(file).split(/[\s,]+/).map(&:strip).reject(&:empty?)
+        all_words += words
+      end
+      return all_words.uniq.map(&:upcase)
+    end
+
     filename = "data/#{@category}.txt"
     if File.exist?(filename)
-      words = File.read(filename).split.map(&:strip).reject(&:empty?)
-      return words unless words.empty?
+      # Usamos split com Regex para aceitar vírgulas ou espaços como separadores
+      words = File.read(filename).split(/[\s,]+/).map(&:strip).reject(&:empty?)
+      return words.map(&:upcase) unless words.empty?
       ["RUBY"]
     else
-      # Fallback se a pasta data não existir
-      Dir.mkdir("data") unless Dir.exist?("data")
-      ["RUBY", "PROGRAMMING", "GITHUB"]
+      ["RUBY"]
     end
   end
 
@@ -263,14 +277,18 @@ class Hangman
   end
 
   def select_word
-    filtered = @dictionary.select do |word|
+    filtered = @dictionary.select { |w| @excluded_words.include?(w) }.select do |word|
       case @difficulty
       when 1 then word.length <= 5
       when 2 then word.length > 5 && word.length <= 10
       when 3 then word.length > 10
       end
     end
-    filtered.empty? ? @dictionary.sample : filtered.sample
+    if filtered.empty? 
+      @dictionary.sample
+    else
+      filtered.sample
+    end
   end
 
   def render_game
@@ -385,7 +403,7 @@ class Hangman
       end
 
       file_data << new_entry
-      File.write("(#{filename}.bak", JSON.pretty_generate(file_data)) if File.exist?(filename)
+      File.write("#{filename}.bak", JSON.pretty_generate(file_data)) if File.exist?(filename)
     end
 
     file_data = File.exist?(filename) && !File.zero?(filename) ? JSON.parse(File.read(filename)) : []
@@ -413,15 +431,20 @@ end
 # --- Execução da Sessão ---
 clear_screen_proc = lambda { Gem.win_platform? ? system("cls") : system("clear") }
 clear_screen_proc.call
+
 puts "Welcome to Hangman Ultimate!".cyan.bold
 print "Enter your name: "
 player_name = gets.chomp.strip
 player_name = "Anonymous" if player_name.empty?
 
 session_score = 0
+played_history = []
+
 loop do
-  game = Hangman.new(player_name, session_score)
+  game = Hangman.new(player_name, session_score, played_history)
   game.play
+
+  played_history << game.secret_word
   session_score = game.current_score 
 
   print "\nDo you want to play another round? (Y/N): "
@@ -429,3 +452,20 @@ loop do
 end
 
 puts "\nThanks for playing, #{player_name}! Final Score: #{session_score}".green.bold
+
+session_score = 0
+played_history = [] # <--- Novo: Guarda as palavras usadas na sessão
+
+loop do
+  game = Hangman.new(played_name, session_score, played_history)
+  # Precisamos expor a palavra escolhida para guardar no histórico
+  # Adicione attr_reader :secret_word no topo da classe Hangman se não tiver
+  
+  game.play
+  
+  played_history << game.secret_word # Salva a palavra que acabou de ser jogada
+  session_score = game.current_score 
+
+  print "\nDo you want to play another round? (Y/N): "
+  break unless gets.chomp.upcase == 'Y'
+end
